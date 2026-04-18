@@ -1,7 +1,7 @@
-# 🎧 Báo Cáo Dự Án: GenZ Lofi Mood-Sync 2025
+# 🎧 Mood-Sync 2025
 
 **Mô tả:**
-Dự án "GenZ Lofi Mood-Sync 2025" là một ứng dụng Web tương tác thông minh, kết hợp giữa lĩnh vực Trí Tuệ Nhân Tạo (Computer Vision) và Khai phá Dữ liệu (Data Mining). Ứng dụng tự động nhận diện khuôn mặt và cảm xúc của người dùng qua luồng ảnh chụp Camera, từ đó đưa ra các gợi ý bài hát Lofi phù hợp nhất để đồng điệu với tâm trạng hiện tại.
+Mood-Sync 2025 là một ứng dụng Web tương tác thông minh, kết hợp giữa **Trí Tuệ Nhân Tạo (Computer Vision)**, **Khai phá Dữ liệu (Data Mining)** và tích hợp nền tảng âm nhạc. Ứng dụng tự động nhận diện khuôn mặt và cảm xúc của người dùng qua ảnh chụp Camera, từ đó đưa ra các gợi ý bài hát phù hợp nhất với tâm trạng hiện tại, kèm nút nghe trực tiếp trên **Spotify** và **SoundCloud**.
 
 ---
 
@@ -11,53 +11,92 @@ Hệ thống được chia thành 3 phần xử lý chức năng chính:
 
 ### 📸 1.1. Module Computer Vision (Nhận diện cảm xúc)
 - **Công nghệ**: OpenCV (`cv2`) và DeepFace.
-- **Quy trình hoạt động**: 
-  - Giao diện web thu nhận ảnh chụp từ người dùng thông qua Camera (Sử dụng widget `st.camera_input`).
-  - Bức ảnh dạng nhị phân lấy từ web được giải mã qua OpenCV và đưa vào mô hình học sâu (Deep Convolutional Neural Networks) của DeepFace để phân tích đặc điểm khuôn mặt.
-  - Trích xuất ra "Cảm xúc chủ đạo" (Dominant Emotion) gồm các trạng thái: Happy, Sad, Neutral, Angry, Fear, Surprise, Disgust.
-- *Lưu ý: Để đảm bảo tính linh hoạt, hệ thống được lập trình với cơ chế Mock Mode dự phòng. Trường hợp thiết bị gặp lỗi cài đặt thư viện lõi ML, nó sẽ chuyển sang chế độ fallback để duy trì luồng giao diện người dùng trơn tru nhất.*
-
-### 🎶 1.2. Module Data Mapping & Recommendation (Gợi ý bài hát)
-- **Dữ liệu**: Bộ dataset gốc `best_lofi_songs_2025.csv`.
-- **Công nghệ**: Pandas.
 - **Quy trình hoạt động**:
-  - Xây dựng một từ điển ánh xạ thông minh (Mapping Keyword Dictionary) liên kết giữa các cảm xúc sinh ra từ DeepFace với các trường "Vibe/Mood" của bài hát (VD: `Happy` được map với keyword `Upbeat, Sweet, Fresh`; `Sad` khớp với `Melancholic, Emotional, Noir`).
-  - Tích hợp Pandas để duyệt mảng, lọc (`filter`) toàn bộ dữ liệu âm nhạc có thẻ từ khóa tương ứng với loại cảm xúc đang có.
-  - Áp dụng thuật toán trích xuất ngẫu nhiên 5 ca khúc trong nhóm được chỉ định (`sample(5)`), giúp mang lại tập kết quả Recommendation luôn mới mẻ, đặc biệt, không nhàm chán vào mỗi lần tương tác.
+  - Giao diện web thu nhận ảnh chụp từ người dùng thông qua Camera (`st.camera_input`).
+  - Ảnh được giải mã qua OpenCV và đưa vào mô hình học sâu (Deep CNN) của DeepFace để phân tích đặc điểm khuôn mặt.
+  - Trích xuất ra **Cảm xúc chủ đạo (Dominant Emotion)** gồm: `Happy`, `Sad`, `Neutral`, `Angry`, `Fear`, `Surprise`, `Disgust`.
+  - Toàn bộ giao diện (màu nền gradient, danh sách nhạc) thay đổi tức thời theo cảm xúc vừa được phát hiện.
+- **Cơ chế đồng bộ**: Sử dụng **image hashing** để phát hiện ảnh mới, tránh xử lý lại và đảm bảo "Cảm xúc chẩn đoán" và "Tâm trạng hiện tại" luôn khớp nhau.
+- *Mock Mode: Nếu thiết bị không hỗ trợ DeepFace, hệ thống tự động chuyển sang chế độ fallback để duy trì giao diện.*
 
-### 💻 1.3. Module Web Interface (Giao diện Web GenZ)
-- **Công nghệ**: Streamlit.
+### 🎶 1.2. Module Data Mining & AI Recommendation (Gợi ý bài hát)
+- **Dữ liệu**: Bộ dataset thực tế `spotify-2023.csv` (gồm ~950 bài hát nổi bật nhất năm 2023 từ Kaggle, với các thuộc tính âm nhạc định lượng).
+- **Công nghệ**: `pandas`, `scikit-learn` (KMeans Clustering, StandardScaler).
 - **Quy trình hoạt động**:
-  - Thiết kế Dashboard dạng chia cột hiện đại: Cột Camera (bên trái) và Cột kết quả Playlist (bên phải).
-  - Tích hợp kỹ thuật Dynamic UI: Hình nền của ứng dụng (Background Layout) không cố định mà là một thành phần động. Tôi đã sử dụng custom css injection để nội suy biến từ Model logic sang dải Gradient cá tính (mô phỏng lại trạng thái người dùng). Ví dụ: Màu Vàng cam Gradient cho niềm vui, Xanh lam tĩnh lặng cho sự buồn bã, hoặc Tím Neon cho bất ngờ.
-  - Giao diện thể hiện thông tin Card của bài hát với hiệu ứng mờ kính (Glassmorphism), hiển thị đầy đủ tên bài, tên nghệ sĩ, và bối cảnh nghe nhạc thích hợp nhất (Best For).
+  - Hệ thống sử dụng thuật toán **K-Means Clustering** (5 cụm) để phân nhóm toàn bộ dữ liệu âm nhạc dựa trên 4 chỉ số âm học: `danceability_%`, `valence_%`, `energy_%`, `acousticness_%`.
+  - Mỗi cụm (cluster) được tự động gán nhãn cảm xúc thông qua phân tích các giá trị centroid (VD: Cluster có `valence cao + energy cao` → `happy/surprise`; `valence thấp + acousticness cao` → `sad/fear`).
+  - Khi cảm xúc người dùng được phát hiện, hệ thống lọc ra đúng cụm nhạc phù hợp và **sample ngẫu nhiên 5 bài** từ cụm đó để gợi ý.
+  - Kết quả được **cache theo session** để tránh reload bài hát mỗi lần màn hình tự render lại.
+
+### 💻 1.3. Module Web Interface (Giao diện Web)
+- **Công nghệ**: Streamlit, HTML/CSS tùy chỉnh.
+- **Quy trình hoạt động**:
+  - Dashboard 2 cột: Cột Camera (trái) và Cột Playlist (phải).
+  - **Dynamic Background**: Hình nền gradient thay đổi theo từng cảm xúc (Vàng cam → vui vẻ, Xanh lam → buồn bã, Tím neon → bất ngờ...).
+  - **Glassmorphism Card**: Mỗi bài hát được hiển thị dạng thẻ kính mờ với tên bài, nghệ sĩ và các chỉ số âm nhạc.
+  - **Nút nghe nhạc đa nền tảng**: Mỗi thẻ bài hát có 2 nút:
+    - 🔊 **SoundCloud** (màu cam) — Tìm & nghe bài hát trực tiếp trên SoundCloud.
+    - 🎧 **Spotify** (màu xanh lá) — Tìm & nghe bài hát trực tiếp trên Spotify.
+  - Không yêu cầu API key hay tài khoản Premium để sử dụng tính năng nhạc.
 
 ---
 
 ## 2. Công Cụ & Môi Trường Yêu Cầu (Dependencies)
-- Ngôn ngữ: Python 3.10+
-- Quản lý giao diện: `streamlit`
-- Xử lý ảnh và cấu trúc mảng: `opencv-python-headless`, `numpy`
-- Lõi trí tuệ nhân tạo (Nhận diện cảm xúc): `deepface`
-- Thư viện khai phá, lọc, và điều hướng dữ liệu: `pandas`
+
+| Thư viện | Mục đích |
+|---|---|
+| `streamlit` | Giao diện web |
+| `opencv-python-headless` | Xử lý ảnh camera |
+| `numpy` | Xử lý mảng nhị phân |
+| `deepface` | Nhận diện cảm xúc khuôn mặt (AI) |
+| `pandas` | Xử lý & lọc dữ liệu âm nhạc |
+| `scikit-learn` | Thuật toán KMeans Clustering |
 
 ---
 
-## 3. Hướng Dẫn Cài Đặt và Sử Dụng
+## 3. Dataset
+
+- **File**: `spotify-2023.csv`
+- **Nguồn**: [Kaggle - Most Streamed Spotify Songs 2023](https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023)
+- **Nội dung**: ~950 bài hát phổ biến nhất 2023, gồm các cột: tên bài hát, nghệ sĩ, lượt stream, và các chỉ số âm nhạc định lượng (`danceability_%`, `valence_%`, `energy_%`, `acousticness_%`...).
+
+---
+
+## 4. Hướng Dẫn Cài Đặt và Sử Dụng
 
 **Bước 1: Cài đặt thư viện**
-Chạy câu lệnh sau trong Terminal (hoặc Command Prompt) tại cùng thư mục dự án:
 ```bash
 pip install -r requirements.txt
 ```
 
-**Bước 2: Khởi động Web App**
-Khởi động Local Server ảo của Streamlit để render ứng dụng lên Web Browser:
+**Bước 2: Khởi động ứng dụng**
 ```bash
 python -m streamlit run app.py
 ```
 
-**Bước 3: Trải nghiệm thực tế**
-- Khi trình duyệt tải xong (thường tại địa chỉ `localhost:8501`), ứng dụng sẽ yêu cầu quyền mở Camera hệ thống -> Bấm Đồng Ý / Allow.
-- Tạo một tư thế hoặc biểu cảm thật ngầu và ấn chụp.
-- Đợi màn hình phân tích trong giây lát. Hệ thống sẽ thay đổi toàn bộ không gian màu tổng thể, phân tích chính xác xem bạn đang Happy, Sad, hay Neutral... và ngay lập tức tổng hợp top 5 bản Lofi đang chờ bạn thưởng thức!
+**Bước 3: Trải nghiệm**
+1. Trình duyệt mở tại `http://localhost:8501` (hoặc cổng được chỉ định).
+2. Bấm **Allow** để cho phép truy cập camera.
+3. Tạo một biểu cảm rồi ấn chụp ảnh.
+4. Hệ thống phân tích cảm xúc → đổi màu nền → gợi ý Top 5 bài hát phù hợp.
+5. Bấm nút **🔊 SoundCloud** hoặc **🎧 Spotify** để nghe bài hát đó ngay lập tức!
+
+---
+
+## 5. Kiến Trúc Hệ Thống (Tóm tắt)
+
+```
+Camera Input (Streamlit)
+        ↓
+  OpenCV Decode
+        ↓
+  DeepFace.analyze()  →  dominant_emotion (7 loại)
+        ↓
+  KMeans Cluster Filter (scikit-learn)
+        ↓
+  Sample 5 bài hát từ cluster phù hợp
+        ↓
+  Hiển thị Card + Nút Spotify/SoundCloud
+        ↓
+  Dynamic Background theo cảm xúc (CSS Gradient)
+```
