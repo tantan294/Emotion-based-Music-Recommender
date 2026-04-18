@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import os
 import random
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 try:
     from deepface import DeepFace
@@ -88,8 +90,48 @@ def set_bg_color(emotion):
     )
 
 @st.cache_data
-def load_data():
-    return pd.read_csv('best_lofi_songs_2025.csv')
+def load_and_cluster_data():
+    df = pd.read_csv('spotify-2023.csv', encoding='latin-1', sep=';')
+    features = ['danceability_%', 'valence_%', 'energy_%', 'acousticness_%']
+    
+    # Xử lý missing values
+    for col in features:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+    X = df[features]
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Sử dụng K-Means chia 5 cụm tâm trạng
+    kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
+    df['cluster'] = kmeans.fit_predict(X_scaled)
+    
+    # Phân tích các tâm trạng gắn với mỗi cụm
+    centroids = df.groupby('cluster')[features].mean()
+    cluster_mapping = {}
+    for cluster_id in centroids.index:
+        c_val = centroids.loc[cluster_id, 'valence_%']
+        c_eng = centroids.loc[cluster_id, 'energy_%']
+        c_aco = centroids.loc[cluster_id, 'acousticness_%']
+        
+        assigned_emotions = []
+        if c_val >= 55 and c_eng >= 60:
+            assigned_emotions.extend(['happy', 'surprise'])
+        elif c_val < 45 and c_aco >= 30:
+            assigned_emotions.extend(['sad', 'fear'])
+        elif c_eng >= 65 and c_val < 50:
+            assigned_emotions.extend(['angry', 'disgust'])
+        else:
+            assigned_emotions.append('neutral')
+            
+        # Nếu logic heuristics không bắt được, lấy default là neutral
+        if not assigned_emotions:
+            assigned_emotions.append('neutral')
+            
+        cluster_mapping[cluster_id] = assigned_emotions
+        
+    df['assigned_emotions'] = df['cluster'].map(cluster_mapping)
+    return df
 
 def main():
     if "mood" not in st.session_state:
@@ -98,10 +140,10 @@ def main():
     set_bg_color(st.session_state.mood)
     
     st.markdown("<h1 style='color: white;'>🎧 GenZ Lofi Mood-Sync 2025</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: white; font-size: 1.2rem;'>Mood của bạn hôm nay thế nào? Để AI chọn cho bạn những bài Lofi cực chill nhé!</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: white; font-size: 1.2rem;'>AI Music Clustering Enabled 🤖 - Để AI chọn cho bạn những bài Lofi cực chill nhé!</p>", unsafe_allow_html=True)
     
-    # Khởi tạo dataset
-    df = load_data()
+    # Khởi tạo dataset và cluster
+    df = load_and_cluster_data()
     
     # Chia giao diện 2 cột
     col1, col2 = st.columns([1, 1.5], gap="large")
@@ -144,45 +186,49 @@ def main():
         st.markdown("<h2 style='color: white;'>🎶 Lofi Vibes For You</h2>", unsafe_allow_html=True)
         if hasattr(st.session_state, 'mood'):
             emotion = st.session_state.mood
-            keywords = emotion_mapping.get(emotion, emotion_mapping['neutral'])
-            keywords_lower = [k.lower() for k in keywords]
             
-            def match_vibe(vibe_str):
-                if pd.isna(vibe_str): return False
-                vibe_lower = str(vibe_str).lower()
-                for kw in keywords_lower:
-                    if kw in vibe_lower:
-                        return True
-                return False
+            # Lọc bài hát dựa trên Cluster có map với cảm xúc này
+            def match_cluster(emotions_list):
+                # Nếu neutral, random cả các bài neutral
+                if emotion == 'neutral' and 'neutral' in emotions_list:
+                    return True
+                return emotion in emotions_list
                 
-            filtered_df = df[df['Vibe/Mood'].apply(match_vibe)]
+            filtered_df = df[df['assigned_emotions'].apply(match_cluster)]
             
-            if len(filtered_df) < 5:
-                extra = df[~df.index.isin(filtered_df.index)]
-                needed = 5 - len(filtered_df)
-                if not extra.empty:
-                    extra_sample = extra.sample(n=min(needed, len(extra)))
-                    recommended = pd.concat([filtered_df, extra_sample])
-                else:
-                    recommended = filtered_df
-            else:
-                recommended = filtered_df.sample(n=5)
+            # Fallback nếu không có cluster nào khớp (tránh lỗi rỗng)
+            if filtered_df.empty:
+                filtered_df = df
+            
+            # Lấy 5 bài ngẫu nhiên
+            recommended = filtered_df.sample(n=min(5, len(filtered_df)))
                 
-            st.markdown(f"<h3 style='color: white;'>Mood Hiện Tại: {emotion.upper()}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: white;'>Tâm trạng hiện tại: {emotion.upper()}</h3>", unsafe_allow_html=True)
             
             for _, row in recommended.iterrows():
-                song_title = row['Song Title']
-                artist = row['Artist']
-                vibe = row['Vibe/Mood']
-                best_for = row['Best For']
+                song_title = row['track_name']
+                artist = row['artist(s)_name']
+                dance = row['danceability_%']
+                val = row['valence_%']
+                energy = row['energy_%']
+                streams = row['streams']
+                cluster_id = row['cluster']
+                
+                # Format views cho ngắn gọn
+                try:
+                    streams_fmt = f"{int(streams):,}"
+                except:
+                    streams_fmt = streams
                 
                 html_card = f"""
                 <div class="song-card">
                     <div class="song-title">{song_title}</div>
                     <div class="song-artist">👤 {artist}</div>
                     <div style="margin-top: 10px;">
-                        <span class="song-tag">✨ {vibe}</span>
-                        <span class="song-tag">🎯 {best_for}</span>
+                        <span class="song-tag">💃 Dance: {dance}%</span>
+                        <span class="song-tag">⚡ Energy: {energy}%</span>
+                        <span class="song-tag">😊 Vibe: {val}%</span>
+                        <span class="song-tag" style="background: rgba(255,105,180,0.4);">🎧 Streams: {streams_fmt}</span>
                     </div>
                 </div>
                 """
