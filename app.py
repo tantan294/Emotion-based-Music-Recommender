@@ -13,10 +13,9 @@ except ImportError:
     class DeepFace:
         @staticmethod
         def analyze(img_path, actions=None, enforce_detection=False):
-            import time
             time.sleep(1.5) # Giả lập độ trễ xử lý
             emotions = ['happy', 'sad', 'neutral', 'angry', 'fear', 'surprise', 'disgust']
-            return [{'dominant_emotion': random.choice(emotions)}]
+            return [{'dominant_emotion': 'happy'}] # Đã cố định cảm xúc thành 'happy' thay vì random
 
 # Cấu hình trang
 st.set_page_config(page_title="GenZ Lofi Mood-Sync", page_icon="🎵", layout="wide")
@@ -115,24 +114,31 @@ def main():
         img_buffer = st.camera_input("Chụp mặt xinh/đẹp trai nào...")
         
         if img_buffer is not None:
-            bytes_data = img_buffer.getvalue()
-            cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            current_img_hash = hash(img_buffer.getvalue())
             
-            temp_path = "temp_face.jpg"
-            cv2.imwrite(temp_path, cv2_img)
-            
-            with st.spinner("AI đang check VAR cảm xúc của bạn... 🧙‍♂️"):
-                try:
-                    result = DeepFace.analyze(temp_path, actions=['emotion'], enforce_detection=False)
-                    if isinstance(result, list):
-                        result = result[0]
-                    dominant_emotion = result['dominant_emotion']
-                    st.session_state.mood = dominant_emotion
-                    st.success(f"Cảm xúc chẩn đoán: **{dominant_emotion.upper()}** 🎯")
-                    os.remove(temp_path)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Khó phán đoán quá, thử lại nha: {e}")
+            if st.session_state.get('last_img_hash') != current_img_hash:
+                bytes_data = img_buffer.getvalue()
+                cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+                
+                temp_path = "temp_face.jpg"
+                cv2.imwrite(temp_path, cv2_img)
+                
+                with st.spinner("AI đang check VAR cảm xúc của bạn... 🧙‍♂️"):
+                    try:
+                        result = DeepFace.analyze(temp_path, actions=['emotion'], enforce_detection=False)
+                        if isinstance(result, list):
+                            result = result[0]
+                        dominant_emotion = result['dominant_emotion']
+                        st.session_state.mood = dominant_emotion
+                        st.session_state.last_img_hash = current_img_hash
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
+                        st.rerun()
+                    except Exception as e:
+                        st.session_state.last_img_hash = current_img_hash
+                        st.error(f"Khó phán đoán quá, thử lại nha: {e}")
+            else:
+                st.success(f"Cảm xúc chẩn đoán: **{st.session_state.mood.upper()}** 🎯")
             
     with col2:
         st.markdown("<h2 style='color: white;'>🎶 Lofi Vibes For You</h2>", unsafe_allow_html=True)
